@@ -3,6 +3,9 @@
 namespace Gedmo\Loggable;
 
 use Doctrine\Common\EventArgs;
+use Doctrine\DBAL\Types\Type;
+use Doctrine\ODM\MongoDB\Types\Type as ODMType;
+use Gedmo\Loggable\Mapping\Event\Adapter\ODM;
 use Gedmo\Mapping\MappedEventSubscriber;
 use Gedmo\Loggable\Mapping\Event\LoggableAdapter;
 use Gedmo\Tool\Wrapper\AbstractWrapper;
@@ -281,6 +284,7 @@ class LoggableListener extends MappedEventSubscriber
      * @param array $config
      * @param object $meta
      * @param object $logEntry
+     *
      * @return array
      */
     protected function getLogEntryData(LoggableAdapter $ea, $object, array $config, $meta, $logEntry)
@@ -329,9 +333,13 @@ class LoggableListener extends MappedEventSubscriber
                             'field' => $field
                         );
                     }
-                //normal value
-                } else {
-                    $value = $ea->convertToDatabaseValue($meta,$field, $value);
+                } else if ($value) {
+                    //normal value
+                    if ($ea instanceof ODM) {
+                        $value = ODMType::getType($meta->getTypeOfField($field))->convertToDatabaseValue($value);
+                    } else {
+                        $value = Type::getType($meta->getTypeOfField($field))->convertToDatabaseValue($value, $ea->getObjectManager()->getConnection()->getDatabasePlatform());
+                    }
                 }
             }
             $newValues[$field] = $value;
